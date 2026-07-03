@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>世界杯点球大战</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #0a0a0a;
+      color: #fff;
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #gameStage {
+      position: relative;
+      width: 1280px;
+      height: 720px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 214, 92, 0.6);
+      border-radius: 8px;
+      background: #111;
+      box-shadow:
+        0 0 0 1px rgba(255, 214, 92, 0.28),
+        0 0 34px rgba(255, 214, 92, 0.62),
+        0 32px 90px rgba(0, 0, 0, 0.82);
+    }
+
+    canvas {
+      display: block;
+      width: 1280px;
+      height: 720px;
+      cursor: crosshair;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.76);
+      backdrop-filter: blur(6px);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .loading-title {
+      margin: 0 0 20px;
+      font-size: 34px;
+      font-weight: 900;
+      color: #ffd65c;
+      text-shadow: 0 0 22px rgba(255, 214, 92, 0.45);
+    }
+
+    .loading-track {
+      width: 430px;
+      max-width: 76%;
+      height: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .loading-bar {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #f8d76d, #f59e0b);
+      transition: width 140ms ease;
+    }
+
+    .loading-text {
+      margin-top: 12px;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 16px;
+    }
+
+    .select-title {
+      margin: 0 0 22px;
+      color: #ffd65c;
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-shadow: 0 0 22px rgba(255, 214, 92, 0.42);
+    }
+
+    .player-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 180px);
+      gap: 16px 20px;
+    }
+
+    .player-card {
+      width: 180px;
+      height: 260px;
+      padding: 10px 12px;
+      border: 2px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      background: rgba(16, 20, 28, 0.88);
+      color: #fff;
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .player-card:hover,
+    .player-card.selected {
+      transform: scale(1.03);
+      border-color: #ffd65c;
+      background: rgba(34, 31, 20, 0.92);
+      box-shadow: 0 0 22px rgba(255, 214, 92, 0.34);
+    }
+
+    .portrait-wrap {
+      width: 140px;
+      height: 186px;
+      margin: 0 auto 3px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .portrait-wrap img {
+      width: 140px;
+      height: 186px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .card-placeholder {
+      width: 140px;
+      height: 186px;
+      display: none;
+      place-items: center;
+      padding: 10px;
+      color: #ffd65c;
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .player-name {
+      text-align: center;
+      color: #fff7cc;
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.15;
+      white-space: nowrap;
+    }
+
+    .stars {
+      margin-top: 3px;
+      color: #ffd65c;
+      font-size: 11px;
+      line-height: 1.25;
+      text-align: center;
+    }
+
+    .desc {
+      margin-top: 3px;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 11px;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+      min-width: 168px;
+      height: 46px;
+      border: 0;
+      border-radius: 8px;
+      color: #2a1700;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      background: linear-gradient(180deg, #fff0a3 0%, #f59e0b 100%);
+      box-shadow: 0 12px 28px rgba(245, 158, 11, 0.32);
+    }
+
+    .primary-btn {
+      margin-top: 22px;
+    }
+
+    .primary-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .end-panel {
+      width: 560px;
+      max-width: 88%;
+      padding: 28px;
+      border: 1px solid rgba(255, 214, 92, 0.5);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.78);
+      box-shadow: 0 0 34px rgba(255, 214, 92, 0.28);
+      text-align: center;
+    }
+
+    .end-title {
+      margin: 0 0 12px;
+      color: #ffd65c;
+      font-size: 34px;
+      font-weight: 900;
+    }
+
+    .end-score {
+      margin-bottom: 14px;
+      font-size: 26px;
+      font-weight: 900;
+    }
+
+    .history-list {
+      margin: 0 auto 18px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.86);
+      line-height: 1.8;
+      text-align: left;
+    }
+
+    .end-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <main id="gameStage" aria-label="世界杯点球大战游戏">
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+    <section id="loadingOverlay" class="overlay" aria-live="polite">
+      <h1 class="loading-title">世界杯点球大战</h1>
+      <div class="loading-track"><div id="loadingBar" class="loading-bar"></div></div>
+      <div id="loadingText" class="loading-text">正在加载图片 0 / 0</div>
+    </section>
+
+    <section id="selectOverlay" class="overlay hidden" aria-label="选择球星">
+      <h2 class="select-title">选择你的球星</h2>
+      <div id="playerGrid" class="player-grid"></div>
+      <button id="startButton" class="primary-btn" type="button" disabled>开始比赛 🏆</button>
+    </section>
+
+    <section id="endOverlay" class="overlay hidden" aria-label="比赛结果">
+      <div class="end-panel">
+        <h2 id="endTitle" class="end-title"></h2>
+        <div id="endScore" class="end-score"></div>
+        <div id="historyList" class="history-list"></div>
+        <div class="end-actions">
+          <button id="restartButton" class="secondary-btn" type="button">再来一局</button>
+          <button id="changePlayerButton" class="secondary-btn" type="button">换个球星</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const BASE_WIDTH = 1280;
+    const BASE_HEIGHT = 720;
+    const PANEL_X = 980;
+    const FIELD_W = 980;
+    const GOAL = { centerX: 490, topY: 220, bottomY: 420, nearW: 520, farW: 320 };
+    const GOAL_RECT = { x: 230, y: 220, w: 520, h: 200 };
+    const BALL_START = { x: 490, y: 560 };
+    const PLAYER_POS = { x: 408, y: 460, w: 165, h: 220 };
+    const KEEPER_POSITIONS = { left: 250, center: 430, right: 610 };
+    const KEEPER_Y = 240;
+    const SPIN_BUTTONS = [
+      { key: 'left', label: '↺ 左旋', x: 1018, y: 226, w: 72, h: 72 },
+      { key: 'none', label: '○ 不旋', x: 1104, y: 226, w: 72, h: 72 },
+      { key: 'right', label: '↻ 右旋', x: 1190, y: 226, w: 72, h: 72 }
+    ];
+    const SOUND_BUTTON = { x: 1018, y: 650, w: 112, h: 38 };
+    const AMBIENT_BUTTON = { x: 1146, y: 650, w: 112, h: 38 };
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const gameStage = document.getElementById('gameStage');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingBar = document.getElementById('loadingBar');
+    const loadingText = document.getElementById('loadingText');
+    const selectOverlay = document.getElementById('selectOverlay');
+    const endOverlay = document.getElementById('endOverlay');
+    const playerGrid = document.getElementById('playerGrid');
+    const startButton = document.getElementById('startButton');
+    const restartButton = document.getElementById('restartButton');
+    const changePlayerButton = document.getElementById('changePlayerButton');
+    const endTitle = document.getElementById('endTitle');
+    const endScore = document.getElementById('endScore');
+    const historyList = document.getElementById('historyList');
+
+    const IMAGE_PATHS = {
+      field: './assets/field.png',
+      ball: './assets/ball.png',
+      keeper: {
+        left: './assets/keeper/keeper_left.png',
+        center: './assets/keeper/keeper_center.png',
+        right: './assets/keeper/keeper_right.png'
+      },
+      players: {
+        mbappe: { select: './assets/players/mbappe/select.png', kick: './assets/players/mbappe/kick.png', happy: './assets/players/mbappe/happy.png', sad: './assets/players/mbappe/sad.png' },
+        messi: { select: './assets/players/messi/select.png', kick: './assets/players/messi/kick.png', happy: './assets/players/messi/happy.png', sad: './assets/players/messi/sad.png' },
+        ronaldo: { select: './assets/players/ronaldo/select.png', kick: './assets/players/ronaldo/kick.png', happy: './assets/players/ronaldo/happy.png', sad: './assets/players/ronaldo/sad.png' },
+        neymar: { select: './assets/players/neymar/select.png', kick: './assets/players/neymar/kick.png', happy: './assets/players/neymar/happy.png', sad: './assets/players/neymar/sad.png' },
+        salah: { select: './assets/players/salah/select.png', kick: './assets/players/salah/kick.png', happy: './assets/players/salah/happy.png', sad: './assets/players/salah/sad.png' },
+        lewandowski: { select: './assets/players/lewandowski/select.png', kick: './assets/players/lewandowski/kick.png', happy: './assets/players/lewandowski/happy.png', sad: './assets/players/lewandowski/sad.png' }
+      }
+    };
+
+    const IMAGES = {
+      field: new Image(),
+      ball: new Image(),
+      keeper: { left: new Image(), center: new Image(), right: new Image() },
+      players: {
+        mbappe: { select: new Image(), kick: new Image(), happy: new Image(), sad: new Image() },
+        messi: { select: new Image(), kick: new Image(), happy: new Image(), sad: new Image() },
+        ronaldo: { select: new Image(), kick: new Image(), happy: new Image(), sad: new Image() },
+        neymar: { select: new Image(), kick: new Image(), happy: new Image(), sad: new Image() },
+        salah: { select: new Image(), kick: new Image(), happy: new Image(), sad: new Image() },
+        lewandowski: { select: new Image(), kick: new Image(), happy: new Image(), sad: new Image() }
+      }
+    };
+
+    const PLAYERS = [
+      { id: 'mbappe', name: '姆巴佩', flag: '🇫🇷', power: 5, accuracy: 4, spin: 2, desc: '暴力射手，门将颤抖' },
+      { id: 'messi', name: '梅西', flag: '🇦🇷', power: 3, accuracy: 5, spin: 4, desc: '轻描淡写，百发百中' },
+      { id: 'ronaldo', name: 'C罗', flag: '🇵🇹', power: 5, accuracy: 4, spin: 3, desc: '电梯球王，力量与精准' },
+      { id: 'neymar', name: '内马尔', flag: '🇧🇷', power: 3, accuracy: 4, spin: 5, desc: '弧线艺术家，门将绝望' },
+      { id: 'salah', name: '萨拉赫', flag: '🇪🇬', power: 4, accuracy: 4, spin: 3, desc: '埃及法老，左脚利刃' },
+      { id: 'lewandowski', name: '莱万多夫斯基', flag: '🇵🇱', power: 4, accuracy: 5, spin: 2, desc: '禁区猎手，冷静如冰' }
+    ];
+
+    const gameState = {
+      phase: 'select',
+      round: 1,
+      scores: { player: 0, ai: 0 },
+      roundHistory: [],
+      selectedPlayer: null,
+      spin: 'none',
+      power: 0,
+      isHolding: false,
+      aimX: 490,
+      aimY: 320,
+      keeperState: 'center',
+      playerState: 'kick',
+      audioEnabled: true,
+      ambientEnabled: false,
+      scale: 1,
+      currentShooter: 'player',
+      keeperChoice: 'center',
+      aiDefendWindow: false,
+      message: '',
+      messageColor: '#ffd65c',
+      messageTimer: 0,
+      flashTimer: 0,
+      netShake: 0,
+      loadingTotal: 0,
+      loadingDone: 0
+    };
+
+    const animationState = {
+      lastTime: 0,
+      keeperX: 430,
+      keeperTargetX: 430,
+      ball: null,
+      powerDirection: 1,
+      powerSpeed: 78,
+      particles: [],
+      resultTimer: null,
+      aiShotTimer: null,
+      aiWindowTimer: null
+    };
+
+    const audioState = {
+      context: null,
+      ambientSource: null,
+      ambientGain: null,
+      selectTimer: null,
+      selectNoteIndex: 0
+    };
+
+    // 用途：把数值限制在指定范围内。
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    // 用途：在两个数值之间按照进度做线性插值。
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    // 用途：生成指定范围内的随机小数。
+    function randomRange(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    // 用途：生成指定范围内的随机整数。
+    function randomInt(min, max) {
+      return Math.floor(randomRange(min, max + 1));
+    }
+
+    // 用途：判断坐标是否落在矩形区域内。
+    function pointInRect(x, y, rect) {
+      return x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
+    }
+
+    // 用途：绘制圆角矩形路径。
+    function roundRect(targetCtx, x, y, w, h, r) {
+      targetCtx.beginPath();
+      targetCtx.moveTo(x + r, y);
+      targetCtx.lineTo(x + w - r, y);
+      targetCtx.quadraticCurveTo(x + w, y, x + w, y + r);
+      targetCtx.lineTo(x + w, y + h - r);
+      targetCtx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      targetCtx.lineTo(x + r, y + h);
+      targetCtx.quadraticCurveTo(x, y + h, x, y + h - r);
+      targetCtx.lineTo(x, y + r);
+      targetCtx.quadraticCurveTo(x, y, x + r, y);
+      targetCtx.closePath();
+    }
+
+    // 用途：根据星级数生成五颗星文本。
+    function starText(value) {
+      let text = '';
+      for (let i = 0; i < 5; i += 1) {
+        text += i < value ? '★' : '☆';
+      }
+      return text;
+    }
+
+    // 用途：按照浏览器窗口尺寸缩放舞台并保持 16:9。
+    function resizeCanvas() {
+      const scaleX = window.innerWidth / BASE_WIDTH;
+      const scaleY = window.innerHeight / BASE_HEIGHT;
+      const scale = Math.min(scaleX, scaleY, 1);
+      gameState.scale = scale;
+      gameStage.style.width = BASE_WIDTH * scale + 'px';
+      gameStage.style.height = BASE_HEIGHT * scale + 'px';
+      canvas.style.width = BASE_WIDTH * scale + 'px';
+      canvas.style.height = BASE_HEIGHT * scale + 'px';
+      canvas.width = BASE_WIDTH;
+      canvas.height = BASE_HEIGHT;
+    }
+
+    // 用途：将鼠标屏幕坐标换算成 Canvas 逻辑坐标。
+    function getCanvasPos(event) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = BASE_WIDTH / rect.width;
+      const scaleY = BASE_HEIGHT / rect.height;
+      return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY
+      };
+    }
+
+    // 用途：预加载所有图片资源并在完成后启动游戏。
+    function preloadImages(paths, callback) {
+      gameState.loadingTotal = 0;
+      gameState.loadingDone = 0;
+      countImagePaths(paths);
+      setImageSources(paths, IMAGES);
+      updateLoadingProgress();
+      if (gameState.loadingTotal === 0) {
+        callback();
+      }
+    }
+
+    // 用途：递归统计图片路径总数。
+    function countImagePaths(node) {
+      const keys = Object.keys(node);
+      for (let i = 0; i < keys.length; i += 1) {
+        const value = node[keys[i]];
+        if (typeof value === 'string') {
+          gameState.loadingTotal += 1;
+        } else {
+          countImagePaths(value);
+        }
+      }
+    }
+
+    // 用途：递归把路径绑定到对应的 Image 对象。
+    function setImageSources(pathNode, imageNode) {
+      const keys = Object.keys(pathNode);
+      for (let i = 0; i < keys.length; i += 1) {
+        const key = keys[i];
+        const value = pathNode[key];
+        if (typeof value === 'string') {
+          imageNode[key].datasetName = key;
+          imageNode[key].failed = false;
+          imageNode[key].onload = handleImageLoaded;
+          imageNode[key].onerror = handleImageFailed;
+          imageNode[key].src = value;
+        } else {
+          setImageSources(value, imageNode[key]);
+        }
+      }
+    }
+
+    // 用途：处理单张图片加载成功。
+    function handleImageLoaded() {
+      gameState.loadingDone += 1;
+      updateLoadingProgress();
+      tryStartAfterPreload();
+    }
+
+    // 用途：处理单张图片加载失败并标记占位绘制。
+    function handleImageFailed(event) {
+      event.currentTarget.failed = true;
+      gameState.loadingDone += 1;
+      updateLoadingProgress();
+      tryStartAfterPreload();
+    }
+
+    // 用途：刷新加载进度条和加载文字。
+    function updateLoadingProgress() {
+      const total = Math.max(1, gameState.loadingTotal);
+      const percent = Math.round(gameState.loadingDone / total * 100);
+      loadingBar.style.width = percent + '%';
+      loadingText.textContent = '正在加载图片 ' + gameState.loadingDone + ' / ' + gameState.loadingTotal;
+    }
+
+    // 用途：在所有图片加载结束后进入选角界面。
+    function tryStartAfterPreload() {
+      if (gameState.loadingDone < gameState.loadingTotal) {
+        return;
+      }
+      loadingOverlay.classList.add('hidden');
+      selectOverlay.classList.remove('hidden');
+      buildPlayerCards();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // 用途：创建六张球员选择卡片。
+    function buildPlayerCards() {
+      playerGrid.innerHTML = '';
+      for (let i = 0; i < PLAYERS.length; i += 1) {
+        const player = PLAYERS[i];
+        const card = document.createElement('button');
+        const img = document.createElement('img');
+        const placeholder = document.createElement('div');
+        card.type = 'button';
+        card.className = 'player-card';
+        card.dataset.playerId = player.id;
+        img.src = IMAGE_PATHS.players[player.id].select;
+        img.alt = player.name;
+        img.addEventListener('error', handleCardImageError);
+        placeholder.className = 'card-placeholder';
+        placeholder.textContent = '图片缺失';
+        card.innerHTML = '<div class="portrait-wrap"></div><div class="player-name">' + player.name + ' ' + player.flag + '</div><div class="stars">力量 ' + starText(player.power) + '<br>精准 ' + starText(player.accuracy) + '<br>旋转 ' + starText(player.spin) + '</div><div class="desc">' + player.desc + '</div>';
+        card.querySelector('.portrait-wrap').appendChild(img);
+        card.querySelector('.portrait-wrap').appendChild(placeholder);
+        card.addEventListener('click', handlePlayerCardClick);
+        playerGrid.appendChild(card);
+      }
+    }
+
+    // 用途：当选角卡片图片加载失败时显示文字占位。
+    function handleCardImageError(event) {
+      const img = event.currentTarget;
+      const placeholder = img.parentElement.querySelector('.card-placeholder');
+      img.style.display = 'none';
+      placeholder.style.display = 'grid';
+    }
+
+    // 用途：处理球员卡片点击并保存选择。
+    function handlePlayerCardClick(event) {
+      const playerId = event.currentTarget.dataset.playerId;
+      gameState.selectedPlayer = getPlayerById(playerId);
+      const cards = playerGrid.querySelectorAll('.player-card');
+      for (let i = 0; i < cards.length; i += 1) {
+        cards[i].classList.toggle('selected', cards[i].dataset.playerId === playerId);
+      }
+      startButton.disabled = false;
+      ensureAudioContext();
+      startSelectionMusic();
+    }
+
+    // 用途：根据球员 id 查询球员配置。
+    function getPlayerById(playerId) {
+      for (let i = 0; i < PLAYERS.length; i += 1) {
+        if (PLAYERS[i].id === playerId) {
+          return PLAYERS[i];
+        }
+      }
+      return PLAYERS[0];
+    }
+
+    // 用途：处理开始比赛按钮点击。
+    function handleStartClick() {
+      if (!gameState.selectedPlayer) {
+        return;
+      }
+      ensureAudioContext();
+      stopSelectionMusic();
+      resetMatch(false);
+      selectOverlay.classList.add('hidden');
+      gameState.phase = 'player_turn';
+    }
+
+    // 用途：处理再来一局按钮点击。
+    function handleRestartClick() {
+      endOverlay.classList.add('hidden');
+      resetMatch(false);
+      gameState.phase = 'player_turn';
+    }
+
+    // 用途：处理换个球星按钮点击。
+    function handleChangePlayerClick() {
+      endOverlay.classList.add('hidden');
+      resetMatch(true);
+      selectOverlay.classList.remove('hidden');
+      gameState.phase = 'select';
+      startButton.disabled = true;
+      startSelectionMusic();
+    }
+
+    // 用途：重置整场比赛状态。
+    function resetMatch(clearPlayer) {
+      clearTimers();
+      gameState.round = 1;
+      gameState.scores.player = 0;
+      gameState.scores.ai = 0;
+      gameState.roundHistory = [];
+      gameState.spin = 'none';
+      gameState.power = 0;
+      gameState.isHolding = false;
+      gameState.aimX = 490;
+      gameState.aimY = 320;
+      gameState.keeperState = 'center';
+      gameState.playerState = 'kick';
+      gameState.currentShooter = 'player';
+      gameState.keeperChoice = 'center';
+      gameState.aiDefendWindow = false;
+      gameState.message = '';
+      gameState.messageTimer = 0;
+      gameState.flashTimer = 0;
+      gameState.netShake = 0;
+      animationState.keeperX = KEEPER_POSITIONS.center;
+      animationState.keeperTargetX = KEEPER_POSITIONS.center;
+      animationState.ball = null;
+      animationState.particles = [];
+      if (clearPlayer) {
+        gameState.selectedPlayer = null;
+        removeSelectedCards();
+      }
+    }
+
+    // 用途：清除等待中的回合计时器。
+    function clearTimers() {
+      if (animationState.resultTimer) {
+        clearTimeout(animationState.resultTimer);
+        animationState.resultTimer = null;
+      }
+      if (animationState.aiShotTimer) {
+        clearTimeout(animationState.aiShotTimer);
+        animationState.aiShotTimer = null;
+      }
+      if (animationState.aiWindowTimer) {
+        clearTimeout(animationState.aiWindowTimer);
+        animationState.aiWindowTimer = null;
+      }
+    }
+
+    // 用途：移除选角卡片选中样式。
+    function removeSelectedCards() {
+      const cards = playerGrid.querySelectorAll('.player-card');
+      for (let i = 0; i < cards.length; i += 1) {
+        cards[i].classList.remove('selected');
+      }
+    }
+
+    // 用途：创建或恢复 Web Audio 上下文。
+    function ensureAudioContext() {
+      if (!gameState.audioEnabled) {
+        return null;
+      }
+      if (!audioState.context) {
+        const AudioCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtor) {
+          return null;
+        }
+        audioState.context = new AudioCtor();
+      }
+      if (audioState.context.state === 'suspended') {
+        audioState.context.resume();
+      }
+      return audioState.context;
+    }
+
+    // 用途：播放一个指定频率和时长的振荡音。
+    function playTone(frequency, duration, type, gain, delay) {
+      const audio = ensureAudioContext();
+      if (!audio) {
+        return;
+      }
+      const osc = audio.createOscillator();
+      const amp = audio.createGain();
+      const start = audio.currentTime + (delay || 0);
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(frequency, start);
+      amp.gain.setValueAtTime(0.0001, start);
+      amp.gain.exponentialRampToValueAtTime(gain, start + 0.02);
+      amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      osc.connect(amp);
+      amp.connect(audio.destination);
+      osc.start(start);
+      osc.stop(start + duration + 0.05);
+    }
+
+    // 用途：播放射门闷响音效。
+    function playKickSound() {
+      playTone(82, 0.15, 'sine', 0.24, 0);
+    }
+
+    // 用途：播放进球欢呼上扬音效。
+    function playGoalSound() {
+      const audio = ensureAudioContext();
+      if (!audio) {
+        return;
+      }
+      const freqs = [180, 260, 420, 620];
+      for (let i = 0; i < freqs.length; i += 1) {
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        const now = audio.currentTime;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freqs[i], now);
+        osc.frequency.exponentialRampToValueAtTime(freqs[i] * 1.8, now + 1.25);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.055, now + 0.18 + i * 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.5);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(now);
+        osc.stop(now + 1.55);
+      }
+    }
+
+    // 用途：播放扑出时的噪声和低频撞击音。
+    function playSaveSound() {
+      const audio = ensureAudioContext();
+      if (!audio) {
+        return;
+      }
+      const buffer = audio.createBuffer(1, audio.sampleRate * 0.22, audio.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const source = audio.createBufferSource();
+      const filter = audio.createBiquadFilter();
+      const gain = audio.createGain();
+      source.buffer = buffer;
+      filter.type = 'bandpass';
+      filter.frequency.value = 1350;
+      filter.Q.value = 0.9;
+      gain.gain.setValueAtTime(0.18, audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.22);
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(audio.destination);
+      source.start();
+      playTone(96, 0.12, 'sine', 0.22, 0.04);
+    }
+
+    // 用途：播放射偏时的低频叹气音。
+    function playWideSound() {
+      playTone(150, 0.5, 'sine', 0.15, 0);
+    }
+
+    // 用途：启动选角界面三音符循环旋律。
+    function startSelectionMusic() {
+      if (audioState.selectTimer || gameState.phase !== 'select') {
+        return;
+      }
+      audioState.selectNoteIndex = 0;
+      playSelectionNote();
+      audioState.selectTimer = setInterval(playSelectionNote, 650);
+    }
+
+    // 用途：播放选角旋律中的一个音符。
+    function playSelectionNote() {
+      const notes = [261.63, 329.63, 392.0];
+      playTone(notes[audioState.selectNoteIndex % notes.length], 0.24, 'triangle', 0.045, 0);
+      audioState.selectNoteIndex += 1;
+    }
+
+    // 用途：停止选角界面循环旋律。
+    function stopSelectionMusic() {
+      if (audioState.selectTimer) {
+        clearInterval(audioState.selectTimer);
+        audioState.selectTimer = null;
+      }
+    }
+
+    // 用途：切换总音效开关。
+    function toggleAudio() {
+      gameState.audioEnabled = !gameState.audioEnabled;
+      if (!gameState.audioEnabled) {
+        stopSelectionMusic();
+        stopAmbientSound();
+      } else {
+        ensureAudioContext();
+      }
+    }
+
+    // 用途：切换背景氛围音。
+    function toggleAmbientSound() {
+      gameState.ambientEnabled = !gameState.ambientEnabled;
+      if (gameState.ambientEnabled) {
+        startAmbientSound();
+      } else {
+        stopAmbientSound();
+      }
+    }
+
+    // 用途：启动低音量白噪声背景氛围。
+    function startAmbientSound() {
+      const audio = ensureAudioContext();
+      if (!audio || audioState.ambientSource) {
+        return;
+      }
+      const buffer = audio.createBuffer(1, audio.sampleRate * 2, audio.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) {
+        data[i] = (Math.random() * 2 - 1) * 0.45;
+      }
+      const source = audio.createBufferSource();
+      const filter = audio.createBiquadFilter();
+      const gain = audio.createGain();
+      source.buffer = buffer;
+      source.loop = true;
+      filter.type = 'lowpass';
+      filter.frequency.value = 480;
+      gain.gain.value = 0.016;
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(audio.destination);
+      source.start();
+      audioState.ambientSource = source;
+      audioState.ambientGain = gain;
+    }
+
+    // 用途：停止背景氛围音。
+    function stopAmbientSound() {
+      if (audioState.ambientSource) {
+        audioState.ambientSource.stop();
+        audioState.ambientSource.disconnect();
+        audioState.ambientSource = null;
+        audioState.ambientGain = null;
+      }
+      gameState.ambientEnabled = false;
+    }
+
+    // 用途：处理鼠标移动并更新瞄准点。
+    function handleMouseMove(event) {
+      const point = getCanvasPos(event);
+      if (gameState.phase !== 'player_turn' || animationState.ball) {
+        return;
+      }
+      if (pointInRect(point.x, point.y, GOAL_RECT)) {
+        gameState.aimX = clamp(point.x, GOAL_RECT.x, GOAL_RECT.x + GOAL_RECT.w);
+        gameState.aimY = clamp(point.y, GOAL_RECT.y, GOAL_RECT.y + GOAL_RECT.h);
+      }
+    }
+
+    // 用途：处理鼠标按下，包含旋转选择、音效按钮和蓄力。
+    function handleMouseDown(event) {
+      ensureAudioContext();
+      const point = getCanvasPos(event);
+      if (handlePanelClick(point)) {
+        return;
+      }
+      if (gameState.phase === 'player_turn' && !animationState.ball && point.x < PANEL_X) {
+        gameState.isHolding = true;
+        gameState.power = 0;
+        animationState.powerDirection = 1;
+        animationState.powerSpeed = 78;
+      }
+    }
+
+    // 用途：处理右侧面板点击并返回是否命中控件。
+    function handlePanelClick(point) {
+      for (let i = 0; i < SPIN_BUTTONS.length; i += 1) {
+        if (pointInRect(point.x, point.y, SPIN_BUTTONS[i])) {
+          gameState.spin = SPIN_BUTTONS[i].key;
+          return true;
+        }
+      }
+      if (pointInRect(point.x, point.y, SOUND_BUTTON)) {
+        toggleAudio();
+        return true;
+      }
+      if (pointInRect(point.x, point.y, AMBIENT_BUTTON)) {
+        toggleAmbientSound();
+        return true;
+      }
+      return point.x >= PANEL_X;
+    }
+
+    // 用途：处理鼠标松开并触发玩家射门。
+    function handleMouseUp() {
+      if (gameState.phase === 'player_turn' && gameState.isHolding && !animationState.ball) {
+        gameState.isHolding = false;
+        triggerPlayerShot();
+      }
+    }
+
+    // 用途：处理 AI 射门时的键盘扑救输入。
+    function handleKeyDown(event) {
+      if (!gameState.aiDefendWindow) {
+        return;
+      }
+      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') {
+        gameState.keeperChoice = 'left';
+      } else if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') {
+        gameState.keeperChoice = 'right';
+      } else if (event.code === 'Space') {
+        event.preventDefault();
+        gameState.keeperChoice = 'center';
+      }
+    }
+
+    // 用途：根据玩家瞄准、属性和旋转计算落点并开始射门。
+    function triggerPlayerShot() {
+      const player = gameState.selectedPlayer;
+      const spread = lerp(82, 14, (player.accuracy - 1) / 4);
+      let targetX = gameState.aimX + randomRange(-spread, spread);
+      let targetY = gameState.aimY + randomRange(-spread * 0.45, spread * 0.45);
+      targetX += getSpinOffset(gameState.spin, player);
+      if (player.id === 'ronaldo' && gameState.spin === 'none') {
+        targetX += randomRange(-28, 28);
+        targetY += randomRange(-14, 14);
+      }
+      const landing = { x: targetX, y: targetY };
+      const keeperDive = chooseAIKeeperDive(landing);
+      gameState.currentShooter = 'player';
+      gameState.playerState = 'kick';
+      startShot('player', landing, gameState.power, gameState.spin, player, keeperDive);
+    }
+
+    // 用途：根据旋转方向和球员旋转属性计算水平偏移。
+    function getSpinOffset(spin, player) {
+      if (spin === 'none') {
+        return 0;
+      }
+      return (spin === 'left' ? -1 : 1) * player.spin * 18;
+    }
+
+    // 用途：让 AI 门将按照 70% 正确率选择扑救方向。
+    function chooseAIKeeperDive(landing) {
+      const correct = getHorizontalZone(landing.x);
+      if (Math.random() < 0.7) {
+        return correct;
+      }
+      return randomWrongDirection(correct);
+    }
+
+    // 用途：返回不同于正确方向的随机方向。
+    function randomWrongDirection(correct) {
+      const options = ['left', 'center', 'right'];
+      const wrong = [];
+      for (let i = 0; i < options.length; i += 1) {
+        if (options[i] !== correct) {
+          wrong.push(options[i]);
+        }
+      }
+      return wrong[randomInt(0, wrong.length - 1)];
+    }
+
+    // 用途：根据横坐标判断球门左中右区域。
+    function getHorizontalZone(x) {
+      if (x < GOAL_RECT.x + GOAL_RECT.w / 3) {
+        return 'left';
+      }
+      if (x > GOAL_RECT.x + GOAL_RECT.w * 2 / 3) {
+        return 'right';
+      }
+      return 'center';
+    }
+
+    // 用途：开始一次射门动画。
+    function startShot(shooter, landing, power, spin, player, keeperDive) {
+      gameState.phase = 'result';
+      gameState.keeperState = keeperDive;
+      animationState.keeperTargetX = KEEPER_POSITIONS[keeperDive];
+      animationState.ball = {
+        shooter: shooter,
+        player: player,
+        startX: BALL_START.x,
+        startY: BALL_START.y,
+        x: BALL_START.x,
+        y: BALL_START.y,
+        targetX: landing.x,
+        targetY: landing.y,
+        power: clamp(power, 30, 100),
+        spin: spin,
+        rotation: 0,
+        time: 0,
+        duration: lerp(0.92, 0.46, clamp(power, 30, 100) / 100),
+        resolved: false,
+        result: null
+      };
+      playKickSound();
+    }
+
+    // 用途：进入 AI 回合并打开 0.5 秒扑救窗口。
+    function startAITurn() {
+      gameState.phase = 'ai_turn';
+      gameState.currentShooter = 'ai';
+      gameState.keeperChoice = 'center';
+      gameState.keeperState = 'center';
+      gameState.playerState = 'kick';
+      gameState.aiDefendWindow = true;
+      gameState.message = 'AI 射门：0.5 秒内扑救！';
+      gameState.messageColor = '#ffd65c';
+      gameState.messageTimer = 0.9;
+      animationState.keeperTargetX = KEEPER_POSITIONS.center;
+      animationState.aiShotTimer = setTimeout(triggerAIShot, 500);
+      animationState.aiWindowTimer = setTimeout(closeAIDefendWindow, 500);
+    }
+
+    // 用途：关闭 AI 射门扑救输入窗口。
+    function closeAIDefendWindow() {
+      gameState.aiDefendWindow = false;
+    }
+
+    // 用途：随机生成 AI 射门并使用玩家扑救方向。
+    function triggerAIShot() {
+      if (gameState.phase !== 'ai_turn') {
+        return;
+      }
+      const zone = randomInt(0, 2);
+      const x = GOAL_RECT.x + GOAL_RECT.w * (zone + 0.5) / 3 + randomRange(-58, 58);
+      const y = randomRange(GOAL_RECT.y + 22, GOAL_RECT.y + GOAL_RECT.h - 18);
+      const power = randomRange(65, 95);
+      const spinOptions = ['left', 'none', 'right'];
+      const aiPlayer = { id: 'ai', name: 'AI', flag: '🤖', power: randomInt(3, 5), accuracy: 4, spin: randomInt(2, 5), desc: '' };
+      gameState.currentShooter = 'ai';
+      gameState.keeperState = gameState.keeperChoice;
+      startShot('ai', { x: x, y: y }, power, spinOptions[randomInt(0, 2)], aiPlayer, gameState.keeperChoice);
+    }
+
+    // 用途：更新所有动画和游戏状态。
+    function update(delta) {
+      updatePower(delta);
+      updateKeeper(delta);
+      updateBall(delta);
+      updateEffects(delta);
+    }
+
+    // 用途：更新蓄力条数值。
+    function updatePower(delta) {
+      if (!gameState.isHolding) {
+        return;
+      }
+      animationState.powerSpeed = clamp(animationState.powerSpeed + delta * 36, 78, 180);
+      gameState.power += animationState.powerDirection * animationState.powerSpeed * delta;
+      if (gameState.power >= 100) {
+        gameState.power = 100;
+        animationState.powerDirection = -1;
+      } else if (gameState.power <= 0) {
+        gameState.power = 0;
+        animationState.powerDirection = 1;
+      }
+    }
+
+    // 用途：更新守门员待机巡逻或扑救位移动画。
+    function updateKeeper(delta) {
+      if (animationState.ball || gameState.phase === 'result') {
+        animationState.keeperX = lerp(animationState.keeperX, animationState.keeperTargetX, clamp(delta * 10, 0, 1));
+        return;
+      }
+      const patrol = 470 + Math.sin(performance.now() / 760) * 140;
+      animationState.keeperX = clamp(patrol, 330, 610);
+      animationState.keeperTargetX = animationState.keeperX;
+      gameState.keeperState = 'center';
+    }
+
+    // 用途：更新足球飞行轨迹并在落点处判定结果。
+    function updateBall(delta) {
+      const ball = animationState.ball;
+      if (!ball) {
+        return;
+      }
+      ball.time += delta;
+      const t = clamp(ball.time / ball.duration, 0, 1);
+      const arc = Math.sin(t * Math.PI) * 124;
+      ball.x = lerp(ball.startX, ball.targetX, t);
+      ball.y = lerp(ball.startY, ball.targetY, t) - arc;
+      ball.rotation += delta * (ball.spin === 'left' ? -12 : 12);
+      if (t >= 1 && !ball.resolved) {
+        ball.x = ball.targetX;
+        ball.y = ball.targetY;
+        ball.resolved = true;
+        resolveShot(ball);
+      }
+    }
+
+    // 用途：更新提示文字、闪光、网抖和粒子特效。
+    function updateEffects(delta) {
+      gameState.messageTimer = Math.max(0, gameState.messageTimer - delta);
+      gameState.flashTimer = Math.max(0, gameState.flashTimer - delta);
+      gameState.netShake = Math.max(0, gameState.netShake - delta * 44);
+      for (let i = animationState.particles.length - 1; i >= 0; i -= 1) {
+        const particle = animationState.particles[i];
+        particle.life -= delta;
+        particle.x += particle.vx * delta;
+        particle.y += particle.vy * delta;
+        particle.vy += 90 * delta;
+        if (particle.life <= 0) {
+          animationState.particles.splice(i, 1);
+        }
+      }
+    }
+
+    // 用途：判定一次射门是进球、扑出还是射偏。
+    function resolveShot(ball) {
+      const inGoal = pointInRect(ball.targetX, ball.targetY, GOAL_RECT);
+      const saved = inGoal && isKeeperSaving(ball);
+      if (!inGoal) {
+        ball.result = 'wide';
+      } else if (saved) {
+        ball.result = 'save';
+      } else {
+        ball.result = 'goal';
+      }
+      applyShotResult(ball);
+    }
+
+    // 用途：根据门将位置和球员力量判断是否扑出。
+    function isKeeperSaving(ball) {
+      const keeperCenterX = animationState.keeperTargetX + 60;
+      const keeperReach = Math.max(70, 160 - ball.player.power * 15);
+      const verticalReach = ball.targetY > GOAL_RECT.y + 26 && ball.targetY < GOAL_RECT.y + GOAL_RECT.h + 26;
+      return Math.abs(ball.targetX - keeperCenterX) <= keeperReach / 2 && verticalReach;
+    }
+
+    // 用途：把射门结果写入比分、记录、图片状态和特效。
+    function applyShotResult(ball) {
+      if (ball.result === 'goal') {
+        gameState.message = '⚽ 进球！GOAL!';
+        gameState.messageColor = '#ffd65c';
+        gameState.flashTimer = 1.2;
+        gameState.netShake = 14;
+        createParticles(ball.targetX, ball.targetY, 34, '#ffd65c');
+        playGoalSound();
+        if (ball.shooter === 'player') {
+          gameState.scores.player += 1;
+          gameState.playerState = 'happy';
+        } else {
+          gameState.scores.ai += 1;
+          gameState.playerState = 'sad';
+        }
+      } else if (ball.result === 'save') {
+        gameState.message = '🧤 扑出！Great Save!';
+        gameState.messageColor = '#ff5a5f';
+        gameState.flashTimer = 0.8;
+        createParticles(animationState.keeperTargetX + 60, KEEPER_Y + 86, 18, '#ff5a5f');
+        playSaveSound();
+        gameState.playerState = ball.shooter === 'player' ? 'sad' : 'happy';
+      } else {
+        gameState.message = '💨 射偏！Wide!';
+        gameState.messageColor = '#d1d5db';
+        gameState.flashTimer = 0.65;
+        playWideSound();
+        gameState.playerState = ball.shooter === 'player' ? 'sad' : 'happy';
+      }
+      gameState.messageTimer = 1.5;
+      animationState.resultTimer = setTimeout(advanceTurn, 1500);
+    }
+
+    // 用途：生成结果反馈粒子。
+    function createParticles(x, y, count, color) {
+      for (let i = 0; i < count; i += 1) {
+        animationState.particles.push({
+          x: x,
+          y: y,
+          vx: randomRange(-120, 120),
+          vy: randomRange(-150, 48),
+          life: randomRange(0.5, 1.15),
+          size: randomRange(3, 7),
+          color: color
+        });
+      }
+    }
+
+    // 用途：推进到 AI 回合、下一轮或比赛结束。
+    function advanceTurn() {
+      const ball = animationState.ball;
+      if (!ball) {
+        return;
+      }
+      if (ball.shooter === 'player') {
+        gameState.roundHistory.push({ playerScored: ball.result === 'goal', aiScored: null });
+        cleanupAfterShot();
+        startAITurn();
+      } else {
+        const history = gameState.roundHistory[gameState.roundHistory.length - 1];
+        if (history) {
+          history.aiScored = ball.result === 'goal';
+        }
+        cleanupAfterShot();
+        if (gameState.round >= 5) {
+          finishMatch();
+        } else {
+          gameState.round += 1;
+          gameState.phase = 'player_turn';
+          gameState.currentShooter = 'player';
+          gameState.message = '';
+        }
+      }
+    }
+
+    // 用途：清理一次射门后的临时动画状态。
+    function cleanupAfterShot() {
+      animationState.ball = null;
+      animationState.resultTimer = null;
+      gameState.isHolding = false;
+      gameState.power = 0;
+      gameState.aiDefendWindow = false;
+      gameState.keeperChoice = 'center';
+      gameState.keeperState = 'center';
+      animationState.keeperTargetX = KEEPER_POSITIONS.center;
+    }
+
+    // 用途：结束整场比赛并展示总结弹窗。
+    function finishMatch() {
+      gameState.phase = 'end';
+      let title = '🤝 势均力敌，平局！';
+      if (gameState.scores.player > gameState.scores.ai) {
+        title = '🏆 世界杯冠军！';
+        createParticles(490, 180, 90, '#ffd65c');
+      } else if (gameState.scores.player < gameState.scores.ai) {
+        title = '😢 遗憾出局，再来一局？';
+      }
+      endTitle.textContent = title;
+      endScore.textContent = '你 ' + gameState.scores.player + ' 球 : AI ' + gameState.scores.ai + ' 球';
+      renderHistory();
+      endOverlay.classList.remove('hidden');
+    }
+
+    // 用途：渲染五轮详细记录。
+    function renderHistory() {
+      let html = '';
+      for (let i = 0; i < gameState.roundHistory.length; i += 1) {
+        const item = gameState.roundHistory[i];
+        const playerMark = item.playerScored ? '✅' : '❌';
+        const aiMark = item.aiScored ? '✅' : '❌';
+        html += '<div>第 ' + (i + 1) + ' 轮：你 ' + playerMark + '　AI ' + aiMark + '</div>';
+      }
+      historyList.innerHTML = html;
+    }
+
+    // 用途：绘制整帧游戏画面。
+    function draw() {
+      drawField();
+      drawHUD();
+      drawGoal();
+      drawKeeper();
+      drawAimCursor();
+      drawPlayer();
+      drawBall();
+      drawEffects();
+      drawControlPanel();
+    }
+
+    // 用途：绘制球场背景图片。
+    function drawField() {
+      if (canDrawImage(IMAGES.field)) {
+        ctx.drawImage(IMAGES.field, 0, 0, BASE_WIDTH, BASE_HEIGHT);
+      } else {
+        ctx.fillStyle = '#166534';
+        ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.font = '700 28px system-ui';
+        ctx.fillText('field.png 加载失败', 470, 370);
+      }
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+      ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+    }
+
+    // 用途：绘制顶部比分与轮次 HUD。
+    function drawHUD() {
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.58)';
+      ctx.fillRect(0, 0, BASE_WIDTH, 70);
+      ctx.fillStyle = '#ffd65c';
+      ctx.font = '900 30px system-ui';
+      ctx.fillText(getSelectedName() + '  ' + gameState.scores.player, 36, 45);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff7cc';
+      ctx.font = '800 22px system-ui';
+      ctx.fillText('第' + gameState.round + '轮 / 共5轮  🏆', BASE_WIDTH / 2, 44);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#ffd65c';
+      ctx.font = '900 30px system-ui';
+      ctx.fillText('AI  ' + gameState.scores.ai, BASE_WIDTH - 36, 45);
+      ctx.restore();
+    }
+
+    // 用途：返回当前选中球员显示名称。
+    function getSelectedName() {
+      return gameState.selectedPlayer ? gameState.selectedPlayer.name : '你';
+    }
+
+    // 用途：绘制透视球门和九宫格参考线。
+    function drawGoal() {
+      const topLeft = GOAL.centerX - GOAL.farW / 2;
+      const topRight = GOAL.centerX + GOAL.farW / 2;
+      const bottomLeft = GOAL.centerX - GOAL.nearW / 2;
+      const bottomRight = GOAL.centerX + GOAL.nearW / 2;
+      const shake = gameState.netShake > 0 ? Math.sin(performance.now() / 28) * gameState.netShake : 0;
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(topLeft, GOAL.topY);
+      ctx.lineTo(topRight, GOAL.topY);
+      ctx.lineTo(bottomRight + shake, GOAL.bottomY);
+      ctx.lineTo(bottomLeft + shake, GOAL.bottomY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.34)';
+      ctx.lineWidth = 1.2;
+      for (let i = 1; i < 8; i += 1) {
+        const t = i / 8;
+        ctx.beginPath();
+        ctx.moveTo(lerp(topLeft, topRight, t), GOAL.topY);
+        ctx.lineTo(lerp(bottomLeft, bottomRight, t) + shake * (t - 0.5), GOAL.bottomY);
+        ctx.stroke();
+      }
+      for (let i = 1; i < 6; i += 1) {
+        const t = i / 6;
+        const y = lerp(GOAL.topY, GOAL.bottomY, t);
+        const left = lerp(topLeft, bottomLeft, t);
+        const right = lerp(topRight, bottomRight, t);
+        ctx.beginPath();
+        ctx.moveTo(left + shake * 0.15, y);
+        ctx.lineTo(right + shake * 0.15, y);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.setLineDash([8, 10]);
+      for (let i = 1; i < 3; i += 1) {
+        const x = GOAL_RECT.x + GOAL_RECT.w * i / 3;
+        ctx.beginPath();
+        ctx.moveTo(x, GOAL_RECT.y);
+        ctx.lineTo(x, GOAL_RECT.y + GOAL_RECT.h);
+        ctx.stroke();
+        const y = GOAL_RECT.y + GOAL_RECT.h * i / 3;
+        ctx.beginPath();
+        ctx.moveTo(GOAL_RECT.x, y);
+        ctx.lineTo(GOAL_RECT.x + GOAL_RECT.w, y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // 用途：绘制守门员图片并根据扑救状态切换姿态。
+    function drawKeeper() {
+      const image = IMAGES.keeper[gameState.keeperState] || IMAGES.keeper.center;
+      drawImageOrPlaceholder(image, animationState.keeperX, KEEPER_Y, 120, 180, 'keeper_' + gameState.keeperState);
+    }
+
+    // 用途：绘制玩家瞄准准星。
+    function drawAimCursor() {
+      if (gameState.phase !== 'player_turn' || animationState.ball) {
+        return;
+      }
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.76)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(gameState.aimX, gameState.aimY, 30, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(gameState.aimX - 25, gameState.aimY);
+      ctx.lineTo(gameState.aimX + 25, gameState.aimY);
+      ctx.moveTo(gameState.aimX, gameState.aimY - 25);
+      ctx.lineTo(gameState.aimX, gameState.aimY + 25);
+      ctx.stroke();
+      ctx.fillStyle = '#ffd65c';
+      ctx.beginPath();
+      ctx.arc(gameState.aimX, gameState.aimY, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 用途：绘制球员图片并根据结果切换高兴或沮丧姿态。
+    function drawPlayer() {
+      const player = gameState.selectedPlayer;
+      if (!player) {
+        return;
+      }
+      const image = IMAGES.players[player.id][gameState.playerState] || IMAGES.players[player.id].kick;
+      drawImageOrPlaceholder(image, PLAYER_POS.x, PLAYER_POS.y, PLAYER_POS.w, PLAYER_POS.h, player.name);
+    }
+
+    // 用途：绘制足球图片，飞行时带旋转动画。
+    function drawBall() {
+      const ball = animationState.ball;
+      const x = ball ? ball.x : BALL_START.x;
+      const y = ball ? ball.y : BALL_START.y;
+      const size = ball ? lerp(48, 30, clamp(ball.time / ball.duration, 0, 1)) : 48;
+      const rotation = ball ? ball.rotation : 0;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      drawImageOrPlaceholder(IMAGES.ball, -size / 2, -size / 2, size, size, 'ball.png');
+      ctx.restore();
+    }
+
+    // 用途：绘制右侧控制面板。
+    function drawControlPanel() {
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      roundRect(ctx, PANEL_X, 70, 300, 650, 22);
+      ctx.fill();
+      drawPanelPlayer();
+      drawSpinControls();
+      drawPowerBar();
+      drawPanelHints();
+      ctx.restore();
+    }
+
+    // 用途：绘制右侧面板的当前球员缩略图与姓名。
+    function drawPanelPlayer() {
+      const player = gameState.selectedPlayer;
+      if (!player) {
+        return;
+      }
+      drawImageOrPlaceholder(IMAGES.players[player.id].select, 1018, 92, 80, 106, player.name);
+      ctx.fillStyle = '#ffd65c';
+      ctx.font = '900 24px system-ui';
+      ctx.fillText(player.name + ' ' + player.flag, 1112, 128);
+      ctx.fillStyle = 'rgba(255,255,255,0.78)';
+      ctx.font = '14px system-ui';
+      ctx.fillText('力量 ' + starText(player.power), 1114, 154);
+      ctx.fillText('精准 ' + starText(player.accuracy), 1114, 176);
+    }
+
+    // 用途：绘制旋转选择按钮。
+    function drawSpinControls() {
+      ctx.fillStyle = '#fff';
+      ctx.font = '900 18px system-ui';
+      ctx.fillText('旋转选择', 1018, 216);
+      for (let i = 0; i < SPIN_BUTTONS.length; i += 1) {
+        const button = SPIN_BUTTONS[i];
+        ctx.fillStyle = gameState.spin === button.key ? 'rgba(255,214,92,0.22)' : 'rgba(255,255,255,0.08)';
+        ctx.strokeStyle = gameState.spin === button.key ? '#ffd65c' : 'rgba(255,255,255,0.16)';
+        ctx.lineWidth = 2;
+        roundRect(ctx, button.x, button.y, button.w, button.h, 8);
+        ctx.fill();
+        ctx.stroke();
+        drawImageOrPlaceholder(IMAGES.ball, button.x + 16, button.y + 8, 40, 40, 'ball.png');
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText(button.label, button.x + button.w / 2, button.y + 61);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    // 用途：绘制竖向力度条和当前力度数值。
+    function drawPowerBar() {
+      const x = 1114;
+      const y = 348;
+      const w = 32;
+      const h = 220;
+      ctx.fillStyle = '#fff';
+      ctx.font = '900 18px system-ui';
+      ctx.fillText('射门力度', 1018, 322);
+      const grad = ctx.createLinearGradient(0, y + h, 0, y);
+      grad.addColorStop(0, '#22c55e');
+      grad.addColorStop(0.5, '#eab308');
+      grad.addColorStop(1, '#ef4444');
+      roundRect(ctx, x, y, w, h, 16);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.42)';
+      ctx.stroke();
+      const markerY = y + h - h * gameState.power / 100;
+      ctx.fillStyle = '#ffd65c';
+      roundRect(ctx, x - 6, markerY - 8, 44, 16, 8);
+      ctx.fill();
+      ctx.fillStyle = '#ffd65c';
+      ctx.font = '900 24px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(Math.round(gameState.power) + '%', x + w / 2, y + h + 38);
+      ctx.textAlign = 'left';
+    }
+
+    // 用途：绘制操作提示和音效开关按钮。
+    function drawPanelHints() {
+      ctx.fillStyle = 'rgba(255,255,255,0.72)';
+      ctx.font = '14px system-ui';
+      ctx.fillText('移动鼠标瞄准球门', 1018, 594);
+      ctx.fillText('按住蓄力，松开射门', 1018, 618);
+      ctx.fillText('AI 射门：←/A、→/D、空格', 1018, 642);
+      drawPanelButton(SOUND_BUTTON, gameState.audioEnabled ? '🔊 音效' : '🔇 音效');
+      drawPanelButton(AMBIENT_BUTTON, gameState.ambientEnabled ? '🔊 氛围' : '🔈 氛围');
+    }
+
+    // 用途：绘制面板内的小按钮。
+    function drawPanelButton(rect, label) {
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.strokeStyle = 'rgba(255,214,92,0.34)';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = '800 14px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, rect.x + rect.w / 2, rect.y + 24);
+      ctx.textAlign = 'left';
+    }
+
+    // 用途：绘制闪光、结果文字和粒子特效。
+    function drawEffects() {
+      if (gameState.flashTimer > 0) {
+        ctx.save();
+        const alpha = clamp(gameState.flashTimer, 0, 1) * 0.44;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = gameState.message.indexOf('进球') >= 0 ? '#ffd65c' : gameState.message.indexOf('扑出') >= 0 ? '#ef4444' : '#9ca3af';
+        ctx.fillRect(GOAL_RECT.x - 30, GOAL_RECT.y - 30, GOAL_RECT.w + 60, GOAL_RECT.h + 60);
+        ctx.restore();
+      }
+      drawParticles();
+      if (gameState.message && gameState.messageTimer > 0) {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(0,0,0,0.62)';
+        roundRect(ctx, 270, 446, 440, 72, 8);
+        ctx.fill();
+        ctx.fillStyle = gameState.messageColor;
+        ctx.font = '900 36px system-ui';
+        ctx.fillText(gameState.message, 490, 493);
+        ctx.restore();
+      }
+    }
+
+    // 用途：绘制所有结果反馈粒子。
+    function drawParticles() {
+      for (let i = 0; i < animationState.particles.length; i += 1) {
+        const particle = animationState.particles[i];
+        ctx.save();
+        ctx.globalAlpha = clamp(particle.life, 0, 1);
+        ctx.fillStyle = particle.color;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // 用途：判断图片是否已经成功加载且可绘制。
+    function canDrawImage(image) {
+      return image && !image.failed && image.complete && image.naturalWidth > 0;
+    }
+
+    // 用途：绘制图片，失败时绘制占位色块和文字。
+    function drawImageOrPlaceholder(image, x, y, w, h, label) {
+      if (canDrawImage(image)) {
+        ctx.drawImage(image, x, y, w, h);
+        return;
+      }
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,214,92,0.18)';
+      ctx.strokeStyle = 'rgba(255,214,92,0.72)';
+      ctx.lineWidth = 2;
+      roundRect(ctx, x, y, w, h, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#ffd65c';
+      ctx.font = '700 14px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x + w / 2, y + h / 2);
+      ctx.restore();
+    }
+
+    // 用途：主动画循环，按帧更新并重绘。
+    function gameLoop(timestamp) {
+      const delta = Math.min(0.033, (timestamp - animationState.lastTime) / 1000 || 0);
+      animationState.lastTime = timestamp;
+      update(delta);
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // 用途：绑定所有用户输入事件。
+    function bindEvents() {
+      window.addEventListener('resize', resizeCanvas);
+      canvas.addEventListener('mousemove', handleMouseMove);
+      canvas.addEventListener('mousedown', handleMouseDown);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('keydown', handleKeyDown);
+      startButton.addEventListener('click', handleStartClick);
+      restartButton.addEventListener('click', handleRestartClick);
+      changePlayerButton.addEventListener('click', handleChangePlayerClick);
+    }
+
+    // 用途：初始化画布、事件和图片加载流程。
+    function initGame() {
+      resizeCanvas();
+      bindEvents();
+      preloadImages(IMAGE_PATHS, tryStartAfterPreload);
+    }
+
+    initGame();
+  </script>
+</body>
+</html>
